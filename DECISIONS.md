@@ -12,3 +12,8 @@
 - Si nadie tiene cartas ni quedan en mazo/basura, la partida termina en empate (`winnerId: null`); prácticamente imposible pero evita bucles.
 - Los eventos del motor son `{ text }` en español, listos para el log.
 - `.gitattributes` fuerza LF para que Prettier no falle en Windows.
+- `room:create`/`room:join` devuelven además un `token` secreto; `room:rejoin` pide `{ code, playerId, token }` porque el `playerId` es público y cualquiera podría suplantarlo.
+- Las respuestas por ack son `{ ok: true, ... }` o `{ ok: false, error }`; el evento `error` solo se emite si el cliente no manda ack.
+- `game:state` incluye `log` (últimos 30 textos) para que quien se reconecta vea el historial.
+- Salir del lobby elimina al jugador; salir a mitad de partida solo lo desconecta (puede volver con `room:rejoin`).
+- Nombres de 1 a 20 caracteres, sin repetir dentro de la sala (sin distinguir mayúsculas).
