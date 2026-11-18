@@ -1,6 +1,6 @@
 # Burgerazo — Reglas del juego
 
-> Este documento **reemplaza la §3 de `PLAN.md`**. Es un juego original con temática de hamburguesas:
+> Especificación del motor (resumida en la §3 de `PLAN.md`). Juego original con temática de hamburguesas:
 > el resto del plan (stack, fases, protocolo, deploy) se mantiene igual.
 
 ## Objetivo

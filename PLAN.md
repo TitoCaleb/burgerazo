@@ -1,4 +1,4 @@
-# PLAN.md — Juego de cartas multijugador "Virus" (versión web privada)
+# PLAN.md — Burgerazo: juego de cartas multijugador (versión web privada)
 
 > **Instrucciones para Claude Code:** Este documento es la especificación completa del proyecto.
 > Ejecútalo **de principio a fin de forma autónoma**, fase por fase, sin pedir confirmación.
@@ -18,7 +18,7 @@
 6. No agregues dependencias innecesarias. Lista permitida abajo; si necesitas otra, justifícala en `DECISIONS.md`.
 7. El **servidor es la única fuente de verdad**: el cliente nunca baraja, nunca valida reglas por su cuenta y nunca recibe cartas ajenas ni el orden del mazo.
 8. Si un test falla 3 veces seguidas con el mismo enfoque, cambia de enfoque y regístralo en `PROGRESS.md`.
-9. Uso privado entre amigos: no copies arte ni logos del juego comercial. Usa colores, emojis o SVG propios para las cartas.
+9. Juego original: usa colores, emojis o SVG propios para las cartas.
 
 ---
 
@@ -76,71 +76,23 @@ Dependencias permitidas: `express`, `socket.io`, `socket.io-client`, `pg`, `nano
 
 ## 3. Reglas del juego (especificación del motor)
 
-### 3.1 Mazo (68 cartas)
+Las reglas completas están en **[`RULES.md`](RULES.md)**. En resumen:
 
-| Tipo | Rojo (corazón) | Azul (cerebro) | Verde (estómago) | Amarillo (hueso) | Multicolor | Total |
-|---|---|---|---|---|---|---|
-| Órgano | 5 | 5 | 5 | 5 | 1 | 21 |
-| Virus | 4 | 4 | 4 | 4 | 1 | 17 |
-| Medicina | 4 | 4 | 4 | 4 | 4 | 20 |
+- **Objetivo:** el primero con los 4 ingredientes (🥩 carne, 🧀 queso, 🥬 lechuga, 🍅 tomate) en su plato y ninguno con plaga.
+- **Mazo de 66 cartas:** 20 ingredientes, 18 plagas 🪰 (2 universales 🐀), 18 fríos ❄️ (2 universales 🧊) y 10 especiales
+  (🔄 Cambio de pedido, 💥 ¡Se cayó al piso!, 📋 Inspección sanitaria, ⏰ Hora pico, 🍟 Plato del día).
+- **Turno:** jugar 1 carta o tirar de 1 a 3; después robar hasta tener 3.
+- **Estados de un ingrediente:** fresco, con plaga, refrigerado, congelado (intocable).
 
-**Tratamientos (10):** Trasplante ×2, Ladrón de órganos ×3, Contagio ×2, Guante de látex ×1, Error médico ×1.
-
-Cada carta tiene un `id` único (`card_01`…`card_68`), `type` (`organ|virus|medicine|treatment`), `color` (`red|blue|green|yellow|multi`) o `treatment` (`transplant|organThief|contagion|latexGlove|medicalError`).
-
-### 3.2 Partida
-- De 2 a 6 jugadores.
-- Al empezar: se baraja el mazo, se reparten 3 cartas a cada jugador y se elige al azar quién empieza. El orden de turnos es el orden de llegada a la sala.
-- **Cuerpo** de cada jugador: lista de órganos; cada órgano tiene `modifiers: []` (virus/medicinas encima).
-- **Turno:** el jugador hace **una** de estas cosas:
-  - **Jugar 1 carta** (sobre su cuerpo, el de otro o como tratamiento).
-  - **Descartar de 1 a 3 cartas** de su mano.
-- Después **roba hasta tener 3 cartas**. Si el mazo se vacía, se baraja el descarte para formar un mazo nuevo.
-- Si un jugador no tiene cartas al empezar su turno (por el Guante de látex), su turno consiste solo en robar 3 y pasa al siguiente.
-
-### 3.3 Compatibilidad de colores
-Una carta es compatible con un órgano si tienen el mismo color **o** si cualquiera de los dos es `multi`.
-
-### 3.4 Estados de un órgano
-| Estado | Modifiers |
-|---|---|
-| Sano | ninguno |
-| Infectado | 1 virus |
-| Vacunado | 1 medicina |
-| Inmunizado | 2 medicinas (permanente; nada lo afecta) |
-
-### 3.5 Jugar órganos, virus y medicinas
-- **Órgano:** va siempre a tu propio cuerpo. No puedes tener dos órganos del mismo color (el multicolor cuenta como un color propio, `multi`, y solo puede haber uno).
-- **Virus** (sobre el órgano compatible de **otro** jugador):
-  - Sano → infectado.
-  - Infectado → se **extirpa** el órgano (órgano + 2 virus van al descarte).
-  - Vacunado → virus y medicina van al descarte (el órgano queda sano).
-  - Inmunizado → no se puede jugar.
-- **Medicina** (sobre un órgano compatible **propio**):
-  - Sano → vacunado.
-  - Vacunado → inmunizado.
-  - Infectado → medicina y virus van al descarte (el órgano queda curado).
-  - Inmunizado → no se puede jugar.
-
-### 3.6 Tratamientos (todos van al descarte después de jugarse)
-- **Trasplante:** intercambia un órgano (con sus modifiers) entre dos jugadores cualesquiera, incluido tú mismo. Ninguno de los dos puede quedar con colores repetidos. No se pueden trasplantar órganos inmunizados.
-- **Ladrón de órganos:** roba un órgano no inmunizado de otro jugador y lo pone en tu cuerpo (no puedes tener ya ese color).
-- **Contagio:** traslada tantos virus de tus órganos como sea posible a órganos **sanos y sin modifiers** de otros jugadores, con color compatible. Con un solo objetivo válido por virus se resuelve sola; si hay varios, el cliente envía el reparto y el servidor lo valida. Para el MVP vale una asignación automática greedy, registrada en `DECISIONS.md`.
-- **Guante de látex:** todos los demás jugadores descartan su mano entera (y por lo tanto en su siguiente turno solo roban).
-- **Error médico:** intercambias tu cuerpo completo con el de otro jugador.
-
-### 3.7 Victoria
-Gana el primer jugador cuyo cuerpo tenga **4 órganos de colores distintos que no estén infectados** (vacunados e inmunizados cuentan como sanos; el órgano multicolor cuenta como uno de los 4). Se comprueba después de cada acción, para **todos** los jugadores (con Trasplante o Error médico puede ganar alguien que no es el jugador en turno).
-
-### 3.8 Formato de acciones
+### Formato de acciones
 ```js
-{ type: 'playCard', cardId, target?: { playerId, organId }, extra?: {...} }
+{ type: 'playCard', cardId, target?: { playerId, ingredientId }, extra?: { ownIngredientId } }
 { type: 'discard', cardIds: [..] }  // 1 a 3 cartas
 ```
 `applyAction` devuelve `{ state, events }` o `{ error: 'mensaje en español' }`. **Nunca muta el estado de entrada.**
 
-### 3.9 Vista por jugador (`getPlayerView(state, playerId)`)
-Incluye: tu mano completa, los cuerpos de todos, el nombre y el número de cartas de cada rival, el turno actual, el tamaño del mazo, la carta superior del descarte, el estado de la partida y el ganador. **Nunca** incluye las manos ajenas ni el contenido del mazo. Debe haber un test que lo verifique.
+### Vista por jugador (`getPlayerView(state, playerId)`)
+Incluye: tu mano completa, los platos de todos, el nombre y el número de cartas de cada rival, el turno actual, el tamaño del mazo, la carta superior del descarte, el estado de la partida y el ganador. **Nunca** incluye las manos ajenas ni el contenido del mazo.
 
 ---
 
@@ -154,15 +106,15 @@ Cliente → servidor:
 | `room:rejoin` | `{ code, playerId }` | reconexión tras recargar (con `playerId` en `localStorage`) |
 | `room:leave` | — | |
 | `game:start` | — | solo el anfitrión, con al menos 2 jugadores |
-| `game:action` | acción (§3.8) | |
+| `game:action` | acción (§3) | |
 | `game:restart` | — | solo el anfitrión, al terminar la partida |
 
 Servidor → cliente:
 | Evento | Payload |
 |---|---|
 | `room:state` | `{ code, hostId, players:[{id,name,connected}], status }` |
-| `game:state` | vista filtrada de cada jugador (§3.9), enviada **por separado a cada socket** |
-| `game:event` | log legible: "Ana infectó el corazón de Luis" |
+| `game:state` | vista filtrada de cada jugador (§3), enviada **por separado a cada socket** |
+| `game:event` | log legible: "Ana le echó una plaga a la lechuga de Luis" |
 | `error` | `{ message }` |
 
 Usa callbacks de confirmación (`ack`) en todos los eventos del cliente. Los códigos de sala son de 4 letras mayúsculas sin caracteres ambiguos (sin O/0/I/1). Las salas vacías durante más de 30 minutos se eliminan.
@@ -181,15 +133,15 @@ Usa callbacks de confirmación (`ack`) en todos los eventos del cliente. Los có
 ### Fase 2 — Motor del juego (la más importante)
 - Implementa todo `server/engine/` según la §3.
 - **Tests exhaustivos** (objetivo ≥ 90 % de cobertura del motor):
-  - el mazo tiene 68 cartas con la distribución exacta; un shuffle con semilla es determinista;
+  - el mazo tiene 66 cartas con la distribución exacta; un shuffle con semilla es determinista;
   - el reparto inicial, la rotación de turnos y el robo hasta 3; rebarajar el descarte cuando el mazo se vacía;
-  - cada transición de la tabla §3.5, incluidos todos los casos inválidos;
-  - cada tratamiento (casos válidos e inválidos);
+  - cada transición de estados de un ingrediente, incluidos todos los casos inválidos;
+  - cada carta especial (casos válidos e inválidos);
   - la victoria, incluida la victoria de un jugador que no está en turno;
   - jugar fuera de turno → error; usar una carta que no está en tu mano → error;
   - `getPlayerView` nunca filtra manos ajenas ni el mazo;
   - `applyAction` no muta el estado original.
-- Un test de "partida simulada": bots que juegan acciones aleatorias válidas durante 500 partidas con semillas distintas, sin errores ni estados inválidos (68 cartas siempre conservadas entre mazo, manos, cuerpos y descarte).
+- Un test de "partida simulada": bots que juegan acciones aleatorias válidas durante 500 partidas con semillas distintas, sin errores ni estados inválidos (66 cartas siempre conservadas entre mazo, manos, platos y descarte).
 
 ✅ **Aceptación:** todos los tests en verde y la simulación de 500 partidas sin fallos.
 
@@ -203,12 +155,12 @@ Usa callbacks de confirmación (`ack`) en todos los eventos del cliente. Los có
 - **Inicio:** campo de nombre, botones "Crear sala" / "Unirse" (con código).
 - **Lobby:** código grande y copiable, lista de jugadores, botón "Empezar" (solo para el anfitrión).
 - **Partida:**
-  - tu mano abajo; los cuerpos de todos los jugadores en tarjetas, resaltando al que tiene el turno;
+  - tu mano abajo; los platos de todos los jugadores en tarjetas, resaltando al que tiene el turno;
   - interacción: tocar una carta → se resaltan los objetivos válidos (el cliente puede *sugerir* objetivos, pero el servidor decide) → tocar el objetivo → se envía la acción;
   - modo "Descartar": seleccionar de 1 a 3 cartas y confirmar;
   - log de eventos, aviso de "Es tu turno" y una pantalla de victoria con "Jugar otra vez".
 - **Mobile-first** (se jugará desde celulares): diseño responsive, botones grandes, sin hover obligatorio.
-- Cartas dibujadas con CSS/SVG propio: color de fondo según el color, emoji o icono según el tipo (🫀🧠🫃🦴 / 🦠 / 💉 / tratamientos).
+- Cartas dibujadas con CSS/SVG propio: color según el ingrediente, emoji según el tipo (🥩🧀🥬🍅 / 🪰🐀 / ❄️🧊 / especiales).
 - Reconexión automática al recargar (`localStorage`).
 
 ✅ **Aceptación:** levanta el servidor, abre 3 pestañas, juega una partida completa sin errores de consola. Si tienes Playwright disponible, automatiza un test E2E de crear sala → unirse → empezar → jugar un turno; si no, documenta la prueba manual en `PROGRESS.md`.
@@ -227,7 +179,7 @@ Usa callbacks de confirmación (`ack`) en todos los eventos del cliente. Los có
   ```yaml
   services:
     - type: web
-      name: virus-online
+      name: burgerazo
       runtime: node
       plan: free
       buildCommand: npm ci && npm run build
@@ -253,7 +205,6 @@ Usa callbacks de confirmación (`ack`) en todos los eventos del cliente. Los có
 - Temporizador de turno opcional (configurable en el lobby; al agotarse, descarta 1 carta automáticamente).
 - Animaciones simples al jugar o robar cartas.
 - Sonido de "es tu turno" (con opción de silenciarlo).
-- Contagio con reparto manual en lugar de greedy.
 - Modo espectador.
 - Rate limiting básico de eventos por socket.
 
@@ -262,7 +213,7 @@ Usa callbacks de confirmación (`ack`) en todos los eventos del cliente. Los có
 ## 6. Fuera de alcance (no hacer)
 - Cuentas, login o contraseñas (basta con el nombre por sala).
 - Expansiones del juego.
-- Chat (opcional en la fase 7 solo si sobra tiempo).
+- ~~Chat~~ (se agregó a pedido del usuario).
 - Escalado horizontal / Redis.
 
 ---
