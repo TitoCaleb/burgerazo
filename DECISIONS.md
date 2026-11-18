@@ -17,3 +17,7 @@
 - `game:state` incluye `log` (últimos 30 textos) para que quien se reconecta vea el historial.
 - Salir del lobby elimina al jugador; salir a mitad de partida solo lo desconecta (puede volver con `room:rejoin`).
 - Nombres de 1 a 20 caracteres, sin repetir dentro de la sala (sin distinguir mayúsculas).
+- La sesión del cliente se guarda en `sessionStorage` (por pestaña, así varias pestañas son jugadores distintos) con `localStorage` de respaldo.
+- El cliente reutiliza `validatePlay` del motor (puro) solo para *sugerir* objetivos; el servidor vuelve a validar todo.
+- Enlace para invitar: `/?sala=CODE` rellena el código en la pantalla de inicio.
+- Vibración corta (si el celular la soporta) cuando empieza tu turno.
