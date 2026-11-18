@@ -20,6 +20,8 @@ export const SPECIALS = {
 
 export const HAND_SIZE = 3;
 export const CHAT_MAX_LENGTH = 200;
+/** Turn timer choices in seconds; 0 = no limit. */
+export const TURN_TIMER_OPTIONS = [0, 30, 60, 90];
 export const CHAT_HISTORY_SIZE = 50;
 export const MIN_PLAYERS = 2;
 export const MAX_PLAYERS = 6;
@@ -83,6 +85,7 @@ export const EVENTS = {
   GAME_RESTART: 'game:restart',
   GAME_STATE: 'game:state',
   GAME_EVENT: 'game:event',
+  ROOM_SETTINGS: 'room:settings',
   CHAT_SEND: 'chat:send',
   CHAT_MESSAGE: 'chat:message',
   CHAT_HISTORY: 'chat:history',

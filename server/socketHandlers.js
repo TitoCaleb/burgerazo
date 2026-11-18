@@ -20,12 +20,20 @@ export function registerSocketHandlers(io, manager) {
       io.to(socketId).emit(EVENTS.GAME_STATE, {
         ...getPlayerView(room.game, p.id),
         log: room.log,
+        turnRemainingMs: manager.turnRemainingMs(room),
+        turnSeconds: room.settings?.turnSeconds ?? 0,
       });
     }
   };
 
   const sendEvents = (room, events) => {
     for (const e of events) io.to(room.code).emit(EVENTS.GAME_EVENT, e);
+  };
+
+  manager.onTimeout = (room, events) => {
+    sendGameState(room);
+    sendEvents(room, events);
+    broadcastRoom(room);
   };
 
   io.on('connection', (socket) => {
@@ -105,6 +113,15 @@ export function registerSocketHandlers(io, manager) {
       socket.data = {};
       reply(ack, { ok: true });
       if (manager.get(room.code)) broadcastRoom(room);
+    });
+
+    socket.on(EVENTS.ROOM_SETTINGS, (payload, ack) => {
+      const room = currentRoom();
+      if (!room) return fail(ack, 'No estás en una sala');
+      const result = manager.updateSettings(room, socket.data.playerId, payload);
+      if (result.error) return fail(ack, result.error);
+      reply(ack, { ok: true, settings: result.settings });
+      broadcastRoom(room);
     });
 
     socket.on(EVENTS.GAME_START, (_payload, ack) => {

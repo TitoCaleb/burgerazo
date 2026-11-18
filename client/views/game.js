@@ -12,6 +12,30 @@ const ui = {
   logOpen: false,
 };
 
+// Cards already shown, so only newly drawn cards play the "deal" animation.
+const seenCards = new Set();
+
+// Turn timer: one interval updates just the bar, without re-rendering the board.
+const timer = { deadline: null, total: 0, mine: false, handle: null };
+function tickTimer() {
+  const el = document.querySelector('.timer');
+  if (!el || !timer.deadline) return;
+  const left = Math.max(0, timer.deadline - Date.now());
+  const secs = Math.ceil(left / 1000);
+  el.querySelector('.timer__fill').style.transform = `scaleX(${left / (timer.total * 1000)})`;
+  el.querySelector('.timer__text').textContent = `${secs} s`;
+  el.classList.toggle('is-low', secs <= 10);
+}
+function setTimer(view) {
+  timer.deadline = view.status === 'playing' ? view.turnDeadline : null;
+  timer.total = view.turnSeconds || 0;
+  if (timer.deadline && !timer.handle) timer.handle = setInterval(tickTimer, 250);
+  if (!timer.deadline && timer.handle) {
+    clearInterval(timer.handle);
+    timer.handle = null;
+  }
+}
+
 export function resetSelection() {
   ui.cardId = null;
   ui.swapOwnId = null;
@@ -135,6 +159,12 @@ export function renderGame(root, { view, room, isHost }, actions) {
       ${myTurn ? '¡Es tu turno!' : view.status === 'playing' ? `Turno de ${esc(turnName)}` : 'Partida terminada'}
     </div>
 
+    <div class="timer ${myTurn ? 'is-mine' : ''}" ${view.turnDeadline && view.status === 'playing' ? '' : 'hidden'}
+      role="timer" aria-label="Tiempo restante del turno">
+      <div class="timer__fill"></div>
+      <span class="timer__text"></span>
+    </div>
+
     <section class="rivals">${others.map((p) => plateHTML(p, view, suggestions, { mine: false, card })).join('')}</section>
 
     <details class="log" ${view.log.length ? '' : 'hidden'} ${ui.logOpen ? 'open' : ''}>
@@ -155,6 +185,7 @@ export function renderGame(root, { view, room, isHost }, actions) {
             cardHTML(c, {
               selected: ui.discardMode ? ui.discardIds.has(c.id) : ui.cardId === c.id,
               disabled: !myTurn,
+              isNew: !seenCards.has(c.id),
             }),
           )
           .join('')}
@@ -194,6 +225,11 @@ export function renderGame(root, { view, room, isHost }, actions) {
         : ''
     }
   </main>`;
+
+  if (view.status !== 'playing') seenCards.clear();
+  else view.hand.forEach((c) => seenCards.add(c.id));
+  setTimer(view);
+  tickTimer();
 
   const rerender = () => renderGame(root, { view, room, isHost }, actions);
 

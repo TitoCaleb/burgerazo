@@ -6,7 +6,7 @@
 - [x] Fase 4 — Cliente jugable (falta la prueba manual en navegador, ver abajo)
 - [x] Fase 5 — Persistencia opcional (Neon) — probada con un Pool simulado; no había Postgres local
 - [x] Fase 6 — Deploy en Render: `render.yaml` + README; `npm ci && npm run build && npm start` verificado desde un clon limpio. **Falta que el humano haga los pasos 1–3 del README** (GitHub, Neon, Render).
-- [ ] Fase 7 — Pulido (hecho: chat entre jugadores)
+- [ ] Fase 7 — Pulido (hecho: chat, temporizador de turno, ajustes de responsive)
 
 ## Verificación de la fase 4
 - Automático: `tests/integration/fullgame.test.js` juega una partida completa con 3 clientes Socket.io (crear → unirse → empezar → jugar hasta que alguien gana → reiniciar).
@@ -19,4 +19,4 @@
 
 ## Problemas conocidos
 - `npm audit`: 0 vulnerabilidades en dependencias de producción; 6 "high" en `picomatch` (solo herramientas de desarrollo).
-- Si el jugador en turno se desconecta, los demás esperan a que vuelva (el temporizador de turno de la fase 7 lo resolvería).
+- Si el jugador en turno se desconecta y la sala **no** tiene temporizador, los demás esperan a que vuelva. Con temporizador, su turno se resuelve solo.

@@ -42,11 +42,15 @@ export function describeCard(card) {
 
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
-export function cardHTML(card, { selected = false, disabled = false, attrs = '' } = {}) {
+export function cardHTML(
+  card,
+  { selected = false, disabled = false, isNew = false, attrs = '' } = {},
+) {
   const { icon, title, caption } = describeCard(card);
   const kind = card.kind ?? card.special;
   const classes = ['card', `card--${card.type}`, `kind--${kind}`];
   if (selected) classes.push('is-selected');
+  if (isNew) classes.push('is-new');
   return `<button type="button" class="${classes.join(' ')}" data-card="${esc(card.id)}" ${
     disabled ? 'disabled' : ''
   } ${attrs}>

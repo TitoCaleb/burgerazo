@@ -55,7 +55,7 @@ function render() {
       { create, join },
     );
   } else if (room.status === 'lobby' || !game) {
-    renderLobby(root, { room, playerId: session.playerId }, { leave, start });
+    renderLobby(root, { room, playerId: session.playerId }, { leave, start, setTimer });
   } else {
     renderGame(
       root,
@@ -118,6 +118,11 @@ async function leave() {
   render();
 }
 
+async function setTimer(turnSeconds) {
+  const reply = await request(EVENTS.ROOM_SETTINGS, { turnSeconds });
+  if (!reply.ok) toast(reply.error);
+}
+
 async function start() {
   const reply = await request(EVENTS.GAME_START);
   if (!reply.ok) toast(reply.error);
@@ -157,6 +162,8 @@ socket.on(EVENTS.ROOM_STATE, (room) => {
 });
 
 socket.on(EVENTS.GAME_STATE, (view) => {
+  // Convert "ms left" into a local deadline so clock differences with the server don't matter.
+  view.turnDeadline = view.turnRemainingMs === null ? null : Date.now() + view.turnRemainingMs;
   store.game = view;
   const mine = view.status === 'playing' && view.turnPlayerId === view.me;
   if (mine && !lastTurnWasMine) navigator.vibrate?.(150);

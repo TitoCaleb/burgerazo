@@ -1,5 +1,8 @@
 import { esc, toast } from '../ui.js';
 import { chatButtonHTML } from '../chat.js';
+import { TURN_TIMER_OPTIONS } from '../../shared/constants.js';
+
+const timerLabel = (s) => (s ? `${s} s` : 'Sin límite');
 
 export function renderLobby(root, { room, playerId }, actions) {
   const isHost = room.hostId === playerId;
@@ -35,6 +38,21 @@ export function renderLobby(root, { room, playerId }, actions) {
       </ul>
     </section>
 
+    <section class="panel">
+      <h2>⏱️ Tiempo por turno</h2>
+      ${
+        isHost
+          ? `<div class="segmented" role="radiogroup" aria-label="Tiempo por turno">
+              ${TURN_TIMER_OPTIONS.map(
+                (s) => `<button type="button" role="radio" class="segmented__opt" data-timer="${s}"
+                  aria-checked="${room.settings?.turnSeconds === s}">${timerLabel(s)}</button>`,
+              ).join('')}
+            </div>
+            <p class="muted small">Si se acaba el tiempo, se tira una carta automáticamente.</p>`
+          : `<p class="muted">${timerLabel(room.settings?.turnSeconds ?? 0)}</p>`
+      }
+    </section>
+
     <footer class="lobby__footer">
       ${
         isHost
@@ -48,6 +66,11 @@ export function renderLobby(root, { room, playerId }, actions) {
 
   root.querySelector('[data-act="leave"]').addEventListener('click', actions.leave);
   root.querySelector('[data-act="start"]')?.addEventListener('click', actions.start);
+  root
+    .querySelectorAll('[data-timer]')
+    .forEach((btn) =>
+      btn.addEventListener('click', () => actions.setTimer(Number(btn.dataset.timer))),
+    );
   for (const btn of root.querySelectorAll('[data-act="copy"]')) {
     btn.addEventListener('click', async () => {
       try {

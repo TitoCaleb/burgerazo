@@ -29,3 +29,5 @@
 - El servicio de Render se llama `burgerazo` (no `virus-online` como en el plan).
 - Chat (pedido por el usuario, fuera del alcance original): `chat:send` → `chat:message`, historial de 50 mensajes por sala enviado como `chat:history` al entrar/reconectar; 1–200 caracteres; máximo 5 mensajes cada 5 s por socket. El panel vive fuera de `#app` para no perder lo que se escribe al re-renderizar.
 - Los ingredientes se juegan tocando su hueco vacío en tu plato; ya no resaltan ingredientes rivales.
+- Temporizador de turno: opciones 0 (sin límite)/30/60/90 s, solo el anfitrión lo cambia y fuera de partida. Al agotarse se tira automáticamente la **primera** carta de la mano. El servidor envía `turnRemainingMs` (no una hora absoluta) para evitar desfases de reloj; una partida restaurada tras un reinicio empieza su turno con el tiempo completo.
+- Responsive: cartas de ancho fijo, línea de ayuda e historial en una sola línea, animación de reparto solo para cartas nuevas y sin animaciones que cambien el tamaño, para que nada salte al actualizarse el tablero.

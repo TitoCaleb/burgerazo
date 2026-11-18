@@ -6,6 +6,7 @@ import {
   GAME_STATUS,
   CHAT_MAX_LENGTH,
   CHAT_HISTORY_SIZE,
+  TURN_TIMER_OPTIONS,
 } from '../shared/constants.js';
 import { createGame } from './engine/state.js';
 import { applyAction } from './engine/actions.js';
@@ -18,6 +19,11 @@ const LOG_SIZE = 30;
 const MAX_NAME = 20;
 
 const randomSeed = () => Math.floor(Math.random() * 2 ** 32);
+const defaultSetTimer = (fn, ms) => {
+  const t = setTimeout(fn, ms);
+  t.unref?.();
+  return t;
+};
 
 function cleanName(name) {
   if (typeof name !== 'string') return null;
@@ -29,6 +35,8 @@ function cleanName(name) {
  * Manages rooms in memory. No sockets here: socketHandlers.js wires this to Socket.io.
  * Persistence hooks: `onChange(room)` after every state change, `onDelete(code)` when a
  * room is removed and `onGameEnd(room)` when a game finishes.
+ * Turn timer: when a turn runs out the active player discards their first card
+ * automatically and `onTimeout(room, events)` is called so the socket layer can broadcast.
  */
 export class RoomManager {
   constructor({
@@ -37,6 +45,9 @@ export class RoomManager {
     onChange = () => {},
     onDelete = () => {},
     onGameEnd = () => {},
+    onTimeout = () => {},
+    setTimer = defaultSetTimer,
+    clearTimer = clearTimeout,
   } = {}) {
     this.rooms = new Map();
     this.now = now;
@@ -44,6 +55,10 @@ export class RoomManager {
     this.onChange = onChange;
     this.onDelete = onDelete;
     this.onGameEnd = onGameEnd;
+    this.onTimeout = onTimeout;
+    this.setTimer = setTimer;
+    this.clearTimer = clearTimer;
+    this.timers = new Map(); // room code -> timer handle (kept out of the snapshot)
   }
 
   /** Restores rooms from snapshots (after a server restart). Everyone starts disconnected. */
@@ -52,8 +67,10 @@ export class RoomManager {
       if (!room?.code || this.rooms.has(room.code)) continue;
       for (const p of room.players) p.connected = false;
       room.chat ??= [];
+      room.settings ??= { turnSeconds: 0 };
       room.emptySince = this.now();
       this.rooms.set(room.code, room);
+      this.#scheduleTurn(room); // a restored game gets a fresh full turn
     }
     return this.rooms.size;
   }
@@ -76,6 +93,8 @@ export class RoomManager {
       game: null,
       log: [],
       chat: [],
+      settings: { turnSeconds: 0 },
+      turnDeadline: null,
       emptySince: null,
     };
     this.rooms.set(code, room);
@@ -114,8 +133,7 @@ export class RoomManager {
     if (room.status === ROOM_STATUS.LOBBY) {
       room.players = room.players.filter((p) => p.id !== playerId);
       if (room.players.length === 0) {
-        this.rooms.delete(room.code);
-        this.onDelete(room.code);
+        this.#deleteRoom(room.code);
         return;
       }
       if (room.hostId === playerId) room.hostId = room.players[0].id;
@@ -156,6 +174,7 @@ export class RoomManager {
       const winner = previous.players.find((p) => p.id === previous.winnerId);
       room.log.unshift(`Partida anterior: ${winner ? `ganó ${winner.name}` : 'empate'}`);
     }
+    this.#scheduleTurn(room);
     this.onChange(room);
     return { events: [{ text: room.log.at(-1) }] };
   }
@@ -175,8 +194,65 @@ export class RoomManager {
       room.status = ROOM_STATUS.FINISHED;
       this.onGameEnd(room);
     }
+    this.#scheduleTurn(room);
     this.onChange(room);
     return { events: result.events };
+  }
+
+  /** Host-only room settings, editable outside of a running game. */
+  updateSettings(room, playerId, settings) {
+    if (room.hostId !== playerId) return { error: 'Solo el anfitrión puede cambiar esto' };
+    if (room.status === ROOM_STATUS.PLAYING)
+      return { error: 'No se puede cambiar en plena partida' };
+    const seconds = Number(settings?.turnSeconds);
+    if (!TURN_TIMER_OPTIONS.includes(seconds)) return { error: 'Tiempo de turno inválido' };
+    room.settings = { ...room.settings, turnSeconds: seconds };
+    this.onChange(room);
+    return { settings: room.settings };
+  }
+
+  /** Milliseconds left in the current turn, or null without a timer. */
+  turnRemainingMs(room) {
+    return room.turnDeadline ? Math.max(0, room.turnDeadline - this.now()) : null;
+  }
+
+  #scheduleTurn(room) {
+    const existing = this.timers.get(room.code);
+    if (existing) this.clearTimer(existing);
+    this.timers.delete(room.code);
+    const seconds = room.settings?.turnSeconds ?? 0;
+    if (room.status !== ROOM_STATUS.PLAYING || !seconds) {
+      room.turnDeadline = null;
+      return;
+    }
+    room.turnDeadline = this.now() + seconds * 1000;
+    const { code } = room;
+    const turnNumber = room.game.turnNumber;
+    this.timers.set(
+      code,
+      this.setTimer(() => this.#expireTurn(code, turnNumber), seconds * 1000),
+    );
+  }
+
+  #expireTurn(code, turnNumber) {
+    this.timers.delete(code);
+    const room = this.get(code);
+    if (!room || room.status !== ROOM_STATUS.PLAYING || room.game.turnNumber !== turnNumber) return;
+    const player = room.game.players[room.game.turn];
+    const card = player.hand[0];
+    if (!card) return;
+    const notice = { text: `⏰ Se acabó el tiempo de ${player.name}` };
+    room.log = [...room.log, notice.text].slice(-LOG_SIZE);
+    const result = this.act(room, player.id, { type: 'discard', cardIds: [card.id] });
+    if (!result.error) this.onTimeout(room, [notice, ...result.events]);
+  }
+
+  #deleteRoom(code) {
+    const timer = this.timers.get(code);
+    if (timer) this.clearTimer(timer);
+    this.timers.delete(code);
+    this.rooms.delete(code);
+    this.onDelete(code);
   }
 
   /** Adds a chat message from a room member. Returns { message } or { error }. */
@@ -206,8 +282,7 @@ export class RoomManager {
     const deleted = [];
     for (const room of this.rooms.values()) {
       if (room.emptySince !== null && this.now() - room.emptySince > EMPTY_ROOM_TTL_MS) {
-        this.rooms.delete(room.code);
-        this.onDelete(room.code);
+        this.#deleteRoom(room.code);
         deleted.push(room.code);
       }
     }
@@ -220,6 +295,7 @@ export class RoomManager {
       code: room.code,
       hostId: room.hostId,
       status: room.status,
+      settings: room.settings ?? { turnSeconds: 0 },
       players: room.players.map(({ id, name, connected }) => ({ id, name, connected })),
     };
   }
