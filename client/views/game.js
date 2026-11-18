@@ -27,6 +27,8 @@ function suggestTargets(view, card) {
   const me = view.players.find((p) => p.id === view.me);
   const targets = new Set();
   const ownChoices = new Set();
+  // Ingredients and untargeted specials never target a plate slot.
+  if (!needsTarget(card)) return { targets, ownChoices };
   for (const p of view.players) {
     for (const slot of p.body) {
       const target = { playerId: p.id, ingredientId: slot.card.id };
@@ -57,7 +59,10 @@ function hint(view, card, myTurn, suggestions) {
       card,
       {},
     );
-    return err ?? `${describeCard(card).title}: toca “Jugar” para confirmar`;
+    if (err) return err;
+    return card.type === 'ingredient'
+      ? 'Toca el hueco resaltado de tu plato'
+      : `${describeCard(card).title}: toca “Jugar” para confirmar`;
   }
   if (card.special === 'orderSwap') {
     if (!suggestions.ownChoices.size) return 'No hay ningún cambio posible ahora';
@@ -70,10 +75,15 @@ function hint(view, card, myTurn, suggestions) {
     : 'Esta carta no tiene objetivos ahora';
 }
 
-function plateHTML(player, view, suggestions, { mine }) {
+function plateHTML(player, view, suggestions, { mine, card }) {
   const isTurn = player.id === view.turnPlayerId;
   const slots = INGREDIENTS.map((kind) => {
     const slot = player.body.find((s) => s.card.kind === kind);
+    if (!slot && mine && card?.type === 'ingredient' && card.kind === kind) {
+      // The selected ingredient can be dropped straight onto its empty spot.
+      return `<button type="button" class="slot slot--empty is-target" data-drop="${esc(card.id)}"
+        aria-label="Poner ${esc(kind)} en tu plato">${INGREDIENT_EMOJI[kind]}</button>`;
+    }
     if (!slot)
       return `<span class="slot slot--empty" aria-label="falta">${INGREDIENT_EMOJI[kind]}</span>`;
     const isOwnChoice = mine && suggestions.ownChoices.has(slot.card.id) && !ui.swapOwnId;
@@ -124,7 +134,7 @@ export function renderGame(root, { view, room, isHost }, actions) {
       ${myTurn ? '¡Es tu turno!' : view.status === 'playing' ? `Turno de ${esc(turnName)}` : 'Partida terminada'}
     </div>
 
-    <section class="rivals">${others.map((p) => plateHTML(p, view, suggestions, { mine: false })).join('')}</section>
+    <section class="rivals">${others.map((p) => plateHTML(p, view, suggestions, { mine: false, card })).join('')}</section>
 
     <details class="log" ${view.log.length ? '' : 'hidden'} ${ui.logOpen ? 'open' : ''}>
       <summary>${esc(view.log.at(-1) ?? '')}</summary>
@@ -136,7 +146,7 @@ export function renderGame(root, { view, room, isHost }, actions) {
     </details>
 
     <section class="me">
-      ${plateHTML(me, view, suggestions, { mine: true })}
+      ${plateHTML(me, view, suggestions, { mine: true, card: myTurn && !ui.discardMode ? card : null })}
       <p class="hint" aria-live="polite">${esc(hint(view, card, myTurn, suggestions))}</p>
       <div class="hand" role="group" aria-label="Tu mano">
         ${view.hand
@@ -208,7 +218,13 @@ export function renderGame(root, { view, room, isHost }, actions) {
     }),
   );
 
-  root.querySelectorAll('.slot.is-target, .slot.is-selected').forEach((btn) =>
+  root
+    .querySelector('[data-drop]')
+    ?.addEventListener('click', (e) =>
+      actions.act({ type: 'playCard', cardId: e.currentTarget.dataset.drop }),
+    );
+
+  root.querySelectorAll('.slot.is-target:not([data-drop]), .slot.is-selected').forEach((btn) =>
     btn.addEventListener('click', () => {
       const { player, slot } = btn.dataset;
       if (card?.special === 'orderSwap' && player === view.me) {

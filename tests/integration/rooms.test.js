@@ -214,5 +214,6 @@ describe('RoomManager', () => {
     expect(m.act(room, active.id, { type: 'discard', cardIds: ['x'] }).error).toBeTruthy();
     expect(m.restart(room, ana.id).error).toBeUndefined();
     expect(room.status).toBe('playing');
+    expect(room.log[0]).toBe(`Partida anterior: ganó ${active.name}`);
   });
 });

@@ -464,6 +464,18 @@ h2 {
     box-shadow: 0 0 0 4px color-mix(in srgb, var(--target) 45%, transparent);
   }
 }
+.plate--mine .plate__slots {
+  max-width: 420px;
+  margin: 0 auto;
+}
+.slot--empty.is-target {
+  opacity: 1;
+  filter: none;
+  font-size: 2rem;
+  pointer-events: auto;
+  cursor: pointer;
+  border-style: dashed;
+}
 .plate--mine .slot__icon {
   font-size: 2.2rem;
 }

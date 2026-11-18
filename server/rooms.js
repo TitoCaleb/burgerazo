@@ -137,13 +137,18 @@ export class RoomManager {
     if (room.players.length < MIN_PLAYERS) {
       return { error: `Se necesitan al menos ${MIN_PLAYERS} jugadores` };
     }
+    const previous = room.game?.status === GAME_STATUS.FINISHED ? room.game : null;
     room.game = createGame({ players: room.players, seed: this.seed() });
     room.status = ROOM_STATUS.PLAYING;
     room.startedAt = this.now();
     const first = room.game.players[room.game.turn].name;
     room.log = [`🍔 ¡Empieza la partida! Comienza ${first}`];
+    if (previous) {
+      const winner = previous.players.find((p) => p.id === previous.winnerId);
+      room.log.unshift(`Partida anterior: ${winner ? `ganó ${winner.name}` : 'empate'}`);
+    }
     this.onChange(room);
-    return { events: [{ text: room.log[0] }] };
+    return { events: [{ text: room.log.at(-1) }] };
   }
 
   restart(room, playerId) {
