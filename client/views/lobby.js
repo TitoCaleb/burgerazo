@@ -1,4 +1,5 @@
 import { esc, toast } from '../ui.js';
+import { chatButtonHTML } from '../chat.js';
 
 export function renderLobby(root, { room, playerId }, actions) {
   const isHost = room.hostId === playerId;
@@ -10,7 +11,7 @@ export function renderLobby(root, { room, playerId }, actions) {
     <header class="topbar">
       <button class="btn btn--ghost btn--small" data-act="leave">← Salir</button>
       <span class="topbar__title">Sala</span>
-      <span></span>
+      <span class="topbar__meta">${chatButtonHTML()}</span>
     </header>
 
     <section class="panel code-panel">

@@ -1,6 +1,7 @@
 import { validatePlay } from '../../server/engine/rules.js';
 import { INGREDIENTS, INGREDIENT_EMOJI } from '../../shared/constants.js';
 import { esc, cardHTML, slotHTML, describeCard } from '../ui.js';
+import { chatButtonHTML } from '../chat.js';
 
 // UI-only selection state; the server decides what is valid.
 const ui = {
@@ -127,7 +128,7 @@ export function renderGame(root, { view, room, isHost }, actions) {
     <header class="topbar">
       <button class="btn btn--ghost btn--small" data-act="leave">← Salir</button>
       <span class="topbar__title">Sala ${esc(room.code)}</span>
-      <span class="topbar__meta" title="Cartas en el mazo">🂠 ${view.deckCount}</span>
+      <span class="topbar__meta"><span title="Cartas en el mazo">🂠 ${view.deckCount}</span>${chatButtonHTML()}</span>
     </header>
 
     <div class="turn-banner ${myTurn ? 'is-mine' : ''}" role="status">

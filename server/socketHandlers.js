@@ -47,7 +47,28 @@ export function registerSocketHandlers(io, manager) {
       socket.data = { code: room.code, playerId: player.id };
       sockets.set(player.id, socket.id);
       socket.join(room.code);
+      socket.emit(EVENTS.CHAT_HISTORY, room.chat ?? []);
     };
+
+    // Simple per-socket rate limit for chat: at most CHAT_BURST messages per CHAT_WINDOW_MS.
+    let chatTimes = [];
+    const chatAllowed = () => {
+      const now = Date.now();
+      chatTimes = chatTimes.filter((t) => now - t < CHAT_WINDOW_MS);
+      if (chatTimes.length >= CHAT_BURST) return false;
+      chatTimes.push(now);
+      return true;
+    };
+
+    socket.on(EVENTS.CHAT_SEND, (payload, ack) => {
+      const room = currentRoom();
+      if (!room) return fail(ack, 'No estás en una sala');
+      if (!chatAllowed()) return fail(ack, 'Más despacio 🙂');
+      const result = manager.addChat(room, socket.data.playerId, payload?.text);
+      if (result.error) return fail(ack, result.error);
+      reply(ack, { ok: true });
+      io.to(room.code).emit(EVENTS.CHAT_MESSAGE, result.message);
+    });
 
     socket.on(EVENTS.ROOM_CREATE, (payload, ack) => {
       const result = manager.createRoom(payload?.name);
@@ -129,5 +150,8 @@ export function registerSocketHandlers(io, manager) {
     });
   });
 }
+
+const CHAT_BURST = 5;
+const CHAT_WINDOW_MS = 5000;
 
 const credentials = (player) => ({ playerId: player.id, token: player.token });

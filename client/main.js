@@ -5,6 +5,7 @@ import { toast } from './ui.js';
 import { renderHome } from './views/home.js';
 import { renderLobby } from './views/lobby.js';
 import { renderGame, resetSelection } from './views/game.js';
+import { initChat, setChatContext } from './chat.js';
 
 const SESSION_KEY = 'burgerazo:session';
 const NAME_KEY = 'burgerazo:name';
@@ -46,6 +47,7 @@ let lastTurnWasMine = false;
 
 function render() {
   const { session, room, game } = store;
+  setChatContext({ inRoom: Boolean(session && room), myId: session?.playerId ?? null });
   if (!session || !room) {
     renderHome(
       root,
@@ -144,6 +146,7 @@ async function rejoin() {
   }
 }
 
+initChat(socket, request);
 socket.on('connect', rejoin);
 socket.on('disconnect', () => toast('Conexión perdida, reconectando…'));
 

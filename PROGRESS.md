@@ -6,7 +6,7 @@
 - [x] Fase 4 — Cliente jugable (falta la prueba manual en navegador, ver abajo)
 - [x] Fase 5 — Persistencia opcional (Neon) — probada con un Pool simulado; no había Postgres local
 - [x] Fase 6 — Deploy en Render: `render.yaml` + README; `npm ci && npm run build && npm start` verificado desde un clon limpio. **Falta que el humano haga los pasos 1–3 del README** (GitHub, Neon, Render).
-- [ ] Fase 7 — Pulido
+- [ ] Fase 7 — Pulido (hecho: chat entre jugadores)
 
 ## Verificación de la fase 4
 - Automático: `tests/integration/fullgame.test.js` juega una partida completa con 3 clientes Socket.io (crear → unirse → empezar → jugar hasta que alguien gana → reiniciar).

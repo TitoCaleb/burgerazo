@@ -1,5 +1,12 @@
 import { customAlphabet, nanoid } from 'nanoid';
-import { MAX_PLAYERS, MIN_PLAYERS, ROOM_STATUS, GAME_STATUS } from '../shared/constants.js';
+import {
+  MAX_PLAYERS,
+  MIN_PLAYERS,
+  ROOM_STATUS,
+  GAME_STATUS,
+  CHAT_MAX_LENGTH,
+  CHAT_HISTORY_SIZE,
+} from '../shared/constants.js';
 import { createGame } from './engine/state.js';
 import { applyAction } from './engine/actions.js';
 
@@ -44,6 +51,7 @@ export class RoomManager {
     for (const room of snapshots) {
       if (!room?.code || this.rooms.has(room.code)) continue;
       for (const p of room.players) p.connected = false;
+      room.chat ??= [];
       room.emptySince = this.now();
       this.rooms.set(room.code, room);
     }
@@ -67,6 +75,7 @@ export class RoomManager {
       status: ROOM_STATUS.LOBBY,
       game: null,
       log: [],
+      chat: [],
       emptySince: null,
     };
     this.rooms.set(code, room);
@@ -168,6 +177,28 @@ export class RoomManager {
     }
     this.onChange(room);
     return { events: result.events };
+  }
+
+  /** Adds a chat message from a room member. Returns { message } or { error }. */
+  addChat(room, playerId, text) {
+    const player = room.players.find((p) => p.id === playerId);
+    if (!player) return { error: 'No estás en esta sala' };
+    if (typeof text !== 'string') return { error: 'Mensaje inválido' };
+    const clean = text.replace(/\s+/g, ' ').trim();
+    if (!clean) return { error: 'El mensaje está vacío' };
+    if (clean.length > CHAT_MAX_LENGTH) {
+      return { error: `Máximo ${CHAT_MAX_LENGTH} caracteres` };
+    }
+    const message = {
+      id: nanoid(8),
+      playerId,
+      name: player.name,
+      text: clean,
+      at: this.now(),
+    };
+    room.chat = [...(room.chat ?? []), message].slice(-CHAT_HISTORY_SIZE);
+    this.onChange(room);
+    return { message };
   }
 
   /** Deletes rooms that have had nobody connected for longer than the TTL. */

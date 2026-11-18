@@ -27,3 +27,5 @@
 - SSL: se usa lo que diga la connection string (Neon trae `sslmode=require`), sin desactivar la verificación de certificados.
 - Si la base falla al arrancar, el servidor sigue solo en memoria y lo registra.
 - El servicio de Render se llama `burgerazo` (no `virus-online` como en el plan).
+- Chat (pedido por el usuario, fuera del alcance original): `chat:send` → `chat:message`, historial de 50 mensajes por sala enviado como `chat:history` al entrar/reconectar; 1–200 caracteres; máximo 5 mensajes cada 5 s por socket. El panel vive fuera de `#app` para no perder lo que se escribe al re-renderizar.
+- Los ingredientes se juegan tocando su hueco vacío en tu plato; ya no resaltan ingredientes rivales.
