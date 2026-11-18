@@ -26,3 +26,4 @@
 - `games` se escribe al terminar una partida (no al empezar).
 - SSL: se usa lo que diga la connection string (Neon trae `sslmode=require`), sin desactivar la verificación de certificados.
 - Si la base falla al arrancar, el servidor sigue solo en memoria y lo registra.
+- El servicio de Render se llama `burgerazo` (no `virus-online` como en el plan).

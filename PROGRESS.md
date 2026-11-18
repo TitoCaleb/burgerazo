@@ -5,7 +5,7 @@
 - [x] Fase 3 — Salas y sockets
 - [x] Fase 4 — Cliente jugable (falta la prueba manual en navegador, ver abajo)
 - [x] Fase 5 — Persistencia opcional (Neon) — probada con un Pool simulado; no había Postgres local
-- [ ] Fase 6 — Deploy en Render
+- [x] Fase 6 — Deploy en Render: `render.yaml` + README; `npm ci && npm run build && npm start` verificado desde un clon limpio. **Falta que el humano haga los pasos 1–3 del README** (GitHub, Neon, Render).
 - [ ] Fase 7 — Pulido
 
 ## Verificación de la fase 4
@@ -18,4 +18,5 @@
   4. Recargar una pestaña a mitad de partida: debe volver al mismo jugador con la misma mano.
 
 ## Problemas conocidos
+- `npm audit`: 0 vulnerabilidades en dependencias de producción; 6 "high" en `picomatch` (solo herramientas de desarrollo).
 - Si el jugador en turno se desconecta, los demás esperan a que vuelva (el temporizador de turno de la fase 7 lo resolvería).
