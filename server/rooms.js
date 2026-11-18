@@ -20,14 +20,34 @@ function cleanName(name) {
 
 /**
  * Manages rooms in memory. No sockets here: socketHandlers.js wires this to Socket.io.
- * `onChange(room)` is called after every state change (used for persistence).
+ * Persistence hooks: `onChange(room)` after every state change, `onDelete(code)` when a
+ * room is removed and `onGameEnd(room)` when a game finishes.
  */
 export class RoomManager {
-  constructor({ now = Date.now, seed = randomSeed, onChange = () => {} } = {}) {
+  constructor({
+    now = Date.now,
+    seed = randomSeed,
+    onChange = () => {},
+    onDelete = () => {},
+    onGameEnd = () => {},
+  } = {}) {
     this.rooms = new Map();
     this.now = now;
     this.seed = seed;
     this.onChange = onChange;
+    this.onDelete = onDelete;
+    this.onGameEnd = onGameEnd;
+  }
+
+  /** Restores rooms from snapshots (after a server restart). Everyone starts disconnected. */
+  restore(snapshots) {
+    for (const room of snapshots) {
+      if (!room?.code || this.rooms.has(room.code)) continue;
+      for (const p of room.players) p.connected = false;
+      room.emptySince = this.now();
+      this.rooms.set(room.code, room);
+    }
+    return this.rooms.size;
   }
 
   get(code) {
@@ -86,6 +106,7 @@ export class RoomManager {
       room.players = room.players.filter((p) => p.id !== playerId);
       if (room.players.length === 0) {
         this.rooms.delete(room.code);
+        this.onDelete(room.code);
         return;
       }
       if (room.hostId === playerId) room.hostId = room.players[0].id;
@@ -118,6 +139,7 @@ export class RoomManager {
     }
     room.game = createGame({ players: room.players, seed: this.seed() });
     room.status = ROOM_STATUS.PLAYING;
+    room.startedAt = this.now();
     const first = room.game.players[room.game.turn].name;
     room.log = [`🍔 ¡Empieza la partida! Comienza ${first}`];
     this.onChange(room);
@@ -134,8 +156,11 @@ export class RoomManager {
     const result = applyAction(room.game, playerId, action);
     if (result.error) return { error: result.error };
     room.game = result.state;
-    if (room.game.status === GAME_STATUS.FINISHED) room.status = ROOM_STATUS.FINISHED;
     room.log = [...room.log, ...result.events.map((e) => e.text)].slice(-LOG_SIZE);
+    if (room.game.status === GAME_STATUS.FINISHED) {
+      room.status = ROOM_STATUS.FINISHED;
+      this.onGameEnd(room);
+    }
     this.onChange(room);
     return { events: result.events };
   }
@@ -146,6 +171,7 @@ export class RoomManager {
     for (const room of this.rooms.values()) {
       if (room.emptySince !== null && this.now() - room.emptySince > EMPTY_ROOM_TTL_MS) {
         this.rooms.delete(room.code);
+        this.onDelete(room.code);
         deleted.push(room.code);
       }
     }

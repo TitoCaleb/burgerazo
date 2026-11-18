@@ -21,3 +21,8 @@
 - El cliente reutiliza `validatePlay` del motor (puro) solo para *sugerir* objetivos; el servidor vuelve a validar todo.
 - Enlace para invitar: `/?sala=CODE` rellena el código en la pantalla de inicio.
 - Vibración corta (si el celular la soporta) cuando empieza tu turno.
+- Persistencia: snapshot de la sala completa (incluye tokens para poder reconectar tras un reinicio). Escrituras serializadas por sala y coalescidas (solo se escribe el último estado).
+- Al restaurar salas tras un reinicio, todos quedan desconectados y la sala se borra si nadie vuelve en 30 min.
+- `games` se escribe al terminar una partida (no al empezar).
+- SSL: se usa lo que diga la connection string (Neon trae `sslmode=require`), sin desactivar la verificación de certificados.
+- Si la base falla al arrancar, el servidor sigue solo en memoria y lo registra.

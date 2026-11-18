@@ -4,7 +4,7 @@
 - [x] Fase 2 — Motor del juego (100 % líneas del motor, simulación de 500 partidas)
 - [x] Fase 3 — Salas y sockets
 - [x] Fase 4 — Cliente jugable (falta la prueba manual en navegador, ver abajo)
-- [ ] Fase 5 — Persistencia opcional (Neon)
+- [x] Fase 5 — Persistencia opcional (Neon) — probada con un Pool simulado; no había Postgres local
 - [ ] Fase 6 — Deploy en Render
 - [ ] Fase 7 — Pulido
 
