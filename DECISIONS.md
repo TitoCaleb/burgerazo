@@ -6,3 +6,9 @@
 - Dependencias extra de desarrollo: `@eslint/js` y `globals` (necesarias para la config plana de ESLint 9+) y `@vitest/coverage-v8` (medir el objetivo de cobertura ≥90 %).
 - Express 5 (última versión estable); la ruta comodín del SPA usa regex.
 - `server/app.js` expone `createAppServer()` sin `listen`, para que los tests arranquen el servidor en un puerto aleatorio; `server/index.js` solo escucha.
+- RNG mulberry32 con su estado guardado en `state.rngState`: `applyAction` es pura y determinista (no recibe RNG aparte).
+- Los objetivos usan `{ playerId, ingredientId }` (el `ingredientId` es el id de la carta de ingrediente); Cambio de pedido usa `extra.ownIngredientId`.
+- Empate de victoria: gana el jugador en turno y luego el orden de turnos desde él.
+- Si nadie tiene cartas ni quedan en mazo/basura, la partida termina en empate (`winnerId: null`); prácticamente imposible pero evita bucles.
+- Los eventos del motor son `{ text }` en español, listos para el log.
+- `.gitattributes` fuerza LF para que Prettier no falle en Windows.
