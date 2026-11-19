@@ -1,7 +1,8 @@
-import { validatePlay } from '../../server/engine/rules.js';
+import { validatePlay, ingredientState } from '../../server/engine/rules.js';
 import { INGREDIENTS, INGREDIENT_EMOJI } from '../../shared/constants.js';
 import { esc, cardHTML, slotHTML, describeCard } from '../ui.js';
 import { chatButtonHTML } from '../chat.js';
+import { isMuted, toggleMuted } from '../sound.js';
 
 // UI-only selection state; the server decides what is valid.
 const ui = {
@@ -14,6 +15,35 @@ const ui = {
 
 // Cards already shown, so only newly drawn cards play the "deal" animation.
 const seenCards = new Set();
+
+// Last seen plate contents ("playerId:kind" -> { id, state }) to tag what changed since the
+// previous render; the animations themselves are pure CSS (.anim-*).
+let prevSlots = null;
+let prevTurnId = null;
+function slotAnim(playerId, kind, slot) {
+  if (!prevSlots) return '';
+  const before = prevSlots.get(`${playerId}:${kind}`);
+  if (!slot) return before ? 'anim-gone' : '';
+  if (!before || before.id !== slot.card.id) return 'anim-new';
+  return before.state !== ingredientState(slot) ? 'anim-changed' : '';
+}
+function rememberSlots(view) {
+  if (view.status !== 'playing') {
+    prevSlots = null;
+    prevTurnId = null;
+    return;
+  }
+  prevSlots = new Map();
+  for (const p of view.players) {
+    for (const slot of p.body) {
+      prevSlots.set(`${p.id}:${slot.card.kind}`, {
+        id: slot.card.id,
+        state: ingredientState(slot),
+      });
+    }
+  }
+  prevTurnId = view.turnPlayerId;
+}
 
 // Turn timer: one interval updates just the bar, without re-rendering the board.
 const timer = { deadline: null, total: 0, mine: false, handle: null };
@@ -104,22 +134,24 @@ function plateHTML(player, view, suggestions, { mine, card }) {
   const isTurn = player.id === view.turnPlayerId;
   const slots = INGREDIENTS.map((kind) => {
     const slot = player.body.find((s) => s.card.kind === kind);
+    const anim = slotAnim(player.id, kind, slot);
     if (!slot && mine && card?.type === 'ingredient' && card.kind === kind) {
       // The selected ingredient can be dropped straight onto its empty spot.
-      return `<button type="button" class="slot slot--empty is-target" data-drop="${esc(card.id)}"
+      return `<button type="button" class="slot slot--empty is-target ${anim}" data-drop="${esc(card.id)}"
         aria-label="Poner ${esc(kind)} en tu plato">${INGREDIENT_EMOJI[kind]}</button>`;
     }
     if (!slot)
-      return `<span class="slot slot--empty" aria-label="falta">${INGREDIENT_EMOJI[kind]}</span>`;
+      return `<span class="slot slot--empty ${anim}" aria-label="falta">${INGREDIENT_EMOJI[kind]}</span>`;
     const isOwnChoice = mine && suggestions.ownChoices.has(slot.card.id) && !ui.swapOwnId;
     return slotHTML(slot, player.id, {
       target: suggestions.targets.has(key(player.id, slot.card.id)) || isOwnChoice,
       selected: mine && ui.swapOwnId === slot.card.id,
+      anim,
     });
   }).join('');
   return `<section class="plate ${mine ? 'plate--mine' : ''} ${isTurn ? 'is-turn' : ''} ${
-    player.connected === false ? 'is-offline' : ''
-  }">
+    isTurn && prevSlots && prevTurnId !== player.id ? 'anim-turn' : ''
+  } ${player.connected === false ? 'is-offline' : ''}">
     <header class="plate__head">
       <span class="plate__name">${isTurn ? '▶ ' : ''}${esc(player.name)}${mine ? ' (tú)' : ''}</span>
       ${mine ? '' : `<span class="plate__cards" title="Cartas en la mano">🂠 ${player.handCount}</span>`}
@@ -152,7 +184,9 @@ export function renderGame(root, { view, room, isHost }, actions) {
     <header class="topbar">
       <button class="btn btn--ghost btn--small" data-act="leave">← Salir</button>
       <span class="topbar__title">Sala ${esc(room.code)}</span>
-      <span class="topbar__meta"><span title="Cartas en el mazo">🂠 ${view.deckCount}</span>${chatButtonHTML()}</span>
+      <span class="topbar__meta"><span title="Cartas en el mazo">🂠 ${view.deckCount}</span>
+        <button class="btn btn--ghost btn--small" data-act="mute" aria-pressed="${isMuted()}"
+          aria-label="${isMuted() ? 'Activar sonido' : 'Silenciar'}" title="${isMuted() ? 'Activar sonido' : 'Silenciar'}">${isMuted() ? '🔕' : '🔔'}</button>${chatButtonHTML()}</span>
     </header>
 
     <div class="turn-banner ${myTurn ? 'is-mine' : ''}" role="status">
@@ -230,6 +264,7 @@ export function renderGame(root, { view, room, isHost }, actions) {
     }
   </main>`;
 
+  rememberSlots(view);
   if (view.status !== 'playing') seenCards.clear();
   else view.hand.forEach((c) => seenCards.add(c.id));
   setTimer(view);
@@ -244,6 +279,10 @@ export function renderGame(root, { view, room, isHost }, actions) {
     .querySelectorAll('[data-act="leave"]')
     .forEach((b) => b.addEventListener('click', actions.leave));
   root.querySelector('[data-act="restart"]')?.addEventListener('click', actions.restart);
+  root.querySelector('[data-act="mute"]').addEventListener('click', () => {
+    toggleMuted();
+    rerender();
+  });
 
   root.querySelectorAll('.hand .card').forEach((btn) =>
     btn.addEventListener('click', () => {

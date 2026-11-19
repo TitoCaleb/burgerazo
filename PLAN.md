@@ -205,8 +205,8 @@ Usa callbacks de confirmación (`ack`) en todos los eventos del cliente. Los có
 - Temporizador de turno opcional (configurable en el lobby; al agotarse, descarta 1 carta automáticamente).
 - Animaciones simples al jugar o robar cartas.
 - Sonido de "es tu turno" (con opción de silenciarlo).
-- Modo espectador.
-- Rate limiting básico de eventos por socket.
+- ~~Modo espectador~~ (descartado por el usuario).
+- ~~Rate limiting básico de eventos por socket~~ (descartado por el usuario; el chat sí tiene límite).
 
 ---
 

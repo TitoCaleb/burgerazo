@@ -6,6 +6,7 @@ import { renderHome } from './views/home.js';
 import { renderLobby } from './views/lobby.js';
 import { renderGame, resetSelection } from './views/game.js';
 import { initChat, setChatContext } from './chat.js';
+import { playTurnSound } from './sound.js';
 
 const SESSION_KEY = 'burgerazo:session';
 const NAME_KEY = 'burgerazo:name';
@@ -171,7 +172,10 @@ socket.on(EVENTS.GAME_STATE, (view) => {
   view.turnDeadline = view.turnRemainingMs === null ? null : Date.now() + view.turnRemainingMs;
   store.game = view;
   const mine = view.status === 'playing' && view.turnPlayerId === view.me;
-  if (mine && !lastTurnWasMine) navigator.vibrate?.(150);
+  if (mine && !lastTurnWasMine) {
+    navigator.vibrate?.(150);
+    playTurnSound();
+  }
   lastTurnWasMine = mine;
   render();
 });

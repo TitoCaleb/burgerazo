@@ -67,12 +67,13 @@ const STATE_INFO = {
   frozen: { badge: '🧊', label: 'congelado' },
 };
 
-export function slotHTML(slot, playerId, { target = false, selected = false } = {}) {
+export function slotHTML(slot, playerId, { target = false, selected = false, anim = '' } = {}) {
   const st = ingredientState(slot);
   const info = STATE_INFO[st];
   const classes = ['slot', `kind--${slot.card.kind}`, `state--${st}`];
   if (target) classes.push('is-target');
   if (selected) classes.push('is-selected');
+  if (anim) classes.push(anim);
   return `<button type="button" class="${classes.join(' ')}" data-player="${esc(playerId)}" data-slot="${esc(
     slot.card.id,
   )}" ${target || selected ? '' : 'tabindex="-1"'} aria-label="${esc(

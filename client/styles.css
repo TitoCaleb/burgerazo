@@ -696,6 +696,78 @@ h2 {
     opacity: 0;
   }
 }
+.overlay__box {
+  animation: rise 0.3s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+@keyframes rise {
+  from {
+    transform: translateY(24px) scale(0.92);
+    opacity: 0;
+  }
+}
+
+/* Plate animations: game.js tags what changed since the last render. */
+.slot.anim-new {
+  animation: slot-pop 0.4s cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+@keyframes slot-pop {
+  from {
+    transform: scale(0.3) rotate(-12deg);
+    opacity: 0;
+  }
+}
+.slot.anim-changed {
+  animation: slot-shake 0.45s ease-in-out;
+}
+@keyframes slot-shake {
+  20% {
+    transform: translateX(-4px) rotate(-4deg);
+  }
+  40% {
+    transform: translateX(4px) rotate(4deg);
+  }
+  60% {
+    transform: translateX(-3px) rotate(-2deg);
+  }
+  80% {
+    transform: translateX(2px);
+  }
+}
+.slot.anim-changed .slot__badge {
+  animation: slot-pop 0.4s 0.1s cubic-bezier(0.2, 1.6, 0.4, 1) backwards;
+}
+.slot--empty.anim-gone {
+  animation: slot-gone 0.5s ease-out;
+}
+@keyframes slot-gone {
+  from {
+    opacity: 1;
+    filter: none;
+    transform: scale(1.15);
+    background: var(--danger);
+  }
+}
+/* Keep the target glow running after the one-off animation. */
+.slot.is-target.anim-new,
+.slot.is-target.anim-changed,
+.slot.is-target.anim-gone {
+  animation:
+    slot-pop 0.4s cubic-bezier(0.2, 1.6, 0.4, 1),
+    glow 1s 0.4s ease-in-out infinite;
+}
+.plate.anim-turn {
+  animation: turn-in 0.5s ease-out;
+}
+@keyframes turn-in {
+  from {
+    transform: scale(0.97);
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--turn) 60%, transparent);
+  }
+}
+.hand .card:not(:disabled):active {
+  transform: scale(0.95);
+}
+
 .player-list__kick {
   margin-left: 4px;
 }
