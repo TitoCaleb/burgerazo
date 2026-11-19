@@ -115,6 +115,23 @@ export function registerSocketHandlers(io, manager) {
       if (manager.get(room.code)) broadcastRoom(room);
     });
 
+    socket.on(EVENTS.ROOM_KICK, (payload, ack) => {
+      const room = currentRoom();
+      if (!room) return fail(ack, 'No estás en una sala');
+      const result = manager.kick(room, socket.data.playerId, payload?.playerId);
+      if (result.error) return fail(ack, result.error);
+      const kickedSocketId = sockets.get(result.player.id);
+      sockets.delete(result.player.id);
+      const kickedSocket = kickedSocketId && io.sockets.sockets.get(kickedSocketId);
+      if (kickedSocket) {
+        kickedSocket.leave(room.code);
+        kickedSocket.data = {};
+        kickedSocket.emit(EVENTS.ROOM_KICKED, { code: room.code });
+      }
+      reply(ack, { ok: true });
+      broadcastRoom(room);
+    });
+
     socket.on(EVENTS.ROOM_SETTINGS, (payload, ack) => {
       const room = currentRoom();
       if (!room) return fail(ack, 'No estás en una sala');

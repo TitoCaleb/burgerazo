@@ -143,6 +143,19 @@ export class RoomManager {
     }
   }
 
+  /** Host-only: removes another player from the lobby (e.g. someone who left and got stuck offline). */
+  kick(room, hostId, targetId) {
+    if (room.hostId !== hostId) return { error: 'Solo el anfitrión puede expulsar' };
+    if (room.status !== ROOM_STATUS.LOBBY)
+      return { error: 'Solo se puede expulsar antes de empezar' };
+    if (targetId === hostId) return { error: 'No puedes expulsarte a ti mismo' };
+    const target = room.players.find((p) => p.id === targetId);
+    if (!target) return { error: 'Ese jugador no está en la sala' };
+    room.players = room.players.filter((p) => p.id !== targetId);
+    this.onChange(room);
+    return { player: target };
+  }
+
   setConnected(room, playerId, connected) {
     const player = room.players.find((p) => p.id === playerId);
     if (!player) return;

@@ -206,7 +206,11 @@ export function renderGame(root, { view, room, isHost }, actions) {
       view.status === 'finished'
         ? `<div class="overlay" role="dialog" aria-modal="true" aria-labelledby="win-title">
             <div class="overlay__box">
-              <div class="overlay__icon" aria-hidden="true">${winner ? '🍔🏆' : '🤝'}</div>
+              ${
+                winner
+                  ? `<img class="overlay__img" src="/img/${winner.id === view.me ? 'win' : 'lose'}.jpg" alt="">`
+                  : '<div class="overlay__icon" aria-hidden="true">🤝</div>'
+              }
               <h2 id="win-title">${
                 winner
                   ? winner.id === view.me

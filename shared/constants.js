@@ -80,6 +80,8 @@ export const EVENTS = {
   ROOM_REJOIN: 'room:rejoin',
   ROOM_LEAVE: 'room:leave',
   ROOM_STATE: 'room:state',
+  ROOM_KICK: 'room:kick',
+  ROOM_KICKED: 'room:kicked',
   GAME_START: 'game:start',
   GAME_ACTION: 'game:action',
   GAME_RESTART: 'game:restart',

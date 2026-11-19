@@ -55,7 +55,7 @@ function render() {
       { create, join },
     );
   } else if (room.status === 'lobby' || !game) {
-    renderLobby(root, { room, playerId: session.playerId }, { leave, start, setTimer });
+    renderLobby(root, { room, playerId: session.playerId }, { leave, start, setTimer, kick });
   } else {
     renderGame(
       root,
@@ -123,6 +123,11 @@ async function setTimer(turnSeconds) {
   if (!reply.ok) toast(reply.error);
 }
 
+async function kick(playerId) {
+  const reply = await request(EVENTS.ROOM_KICK, { playerId });
+  if (!reply.ok) toast(reply.error);
+}
+
 async function start() {
   const reply = await request(EVENTS.GAME_START);
   if (!reply.ok) toast(reply.error);
@@ -169,6 +174,12 @@ socket.on(EVENTS.GAME_STATE, (view) => {
   if (mine && !lastTurnWasMine) navigator.vibrate?.(150);
   lastTurnWasMine = mine;
   render();
+});
+
+socket.on(EVENTS.ROOM_KICKED, () => {
+  clearSession();
+  render();
+  toast('El anfitrión te sacó de la sala');
 });
 
 socket.on(EVENTS.ERROR, ({ message }) => toast(message));

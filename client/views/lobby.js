@@ -32,6 +32,12 @@ export function renderLobby(root, { room, playerId }, actions) {
               <span class="dot" aria-hidden="true"></span>
               <span class="player-list__name">${esc(p.name)}${p.id === playerId ? ' (tú)' : ''}</span>
               ${p.id === room.hostId ? '<span class="tag">👑 anfitrión</span>' : ''}
+              ${
+                isHost && p.id !== playerId
+                  ? `<button class="btn btn--ghost btn--small player-list__kick" data-kick="${esc(p.id)}"
+                      aria-label="Expulsar a ${esc(p.name)}" title="Expulsar">✕</button>`
+                  : ''
+              }
             </li>`,
           )
           .join('')}
@@ -71,6 +77,9 @@ export function renderLobby(root, { room, playerId }, actions) {
     .forEach((btn) =>
       btn.addEventListener('click', () => actions.setTimer(Number(btn.dataset.timer))),
     );
+  root
+    .querySelectorAll('[data-kick]')
+    .forEach((btn) => btn.addEventListener('click', () => actions.kick(btn.dataset.kick)));
   for (const btn of root.querySelectorAll('[data-act="copy"]')) {
     btn.addEventListener('click', async () => {
       try {
