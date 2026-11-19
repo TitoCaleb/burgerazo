@@ -68,6 +68,7 @@ export class RoomManager {
       for (const p of room.players) p.connected = false;
       room.chat ??= [];
       room.settings ??= { turnSeconds: 0 };
+      room.ownerId ??= room.hostId;
       room.emptySince = this.now();
       this.rooms.set(room.code, room);
       this.#scheduleTurn(room); // a restored game gets a fresh full turn
@@ -88,6 +89,7 @@ export class RoomManager {
     const room = {
       code,
       hostId: null,
+      ownerId: null, // whoever created the room; gets the host role back when they reconnect
       players: [],
       status: ROOM_STATUS.LOBBY,
       game: null,
@@ -100,6 +102,7 @@ export class RoomManager {
     this.rooms.set(code, room);
     const player = this.#addPlayer(room, clean);
     room.hostId = player.id;
+    room.ownerId = player.id;
     this.onChange(room);
     return { room, player };
   }
@@ -137,6 +140,7 @@ export class RoomManager {
         return;
       }
       if (room.hostId === playerId) room.hostId = room.players[0].id;
+      if (room.ownerId === playerId) room.ownerId = room.hostId;
       this.onChange(room);
     } else {
       this.setConnected(room, playerId, false);
@@ -152,6 +156,7 @@ export class RoomManager {
     const target = room.players.find((p) => p.id === targetId);
     if (!target) return { error: 'Ese jugador no está en la sala' };
     room.players = room.players.filter((p) => p.id !== targetId);
+    if (room.ownerId === targetId) room.ownerId = room.hostId;
     this.onChange(room);
     return { player: target };
   }
@@ -164,7 +169,12 @@ export class RoomManager {
       const next = this.#nextConnected(room, playerId);
       if (next) room.hostId = next.id;
     }
-    if (connected && !room.players.some((p) => p.id === room.hostId && p.connected)) {
+    // The room creator always takes the host role back (e.g. after reloading the page);
+    // anyone else only takes it if nobody connected holds it.
+    if (
+      connected &&
+      (playerId === room.ownerId || !room.players.some((p) => p.id === room.hostId && p.connected))
+    ) {
       room.hostId = playerId;
     }
     room.emptySince = room.players.some((p) => p.connected) ? null : this.now();

@@ -153,6 +153,18 @@ describe('rooms over sockets', () => {
     expect((await emit(players[1].socket, 'game:start')).ok).toBe(true);
   });
 
+  it('the room creator gets the host role back after reloading', async () => {
+    const { code, players } = await roomWithThree();
+    await emit(players[0].socket, 'game:start');
+    players[0].socket.disconnect();
+    await waitFor(players[1].socket, 'room:state', (s) => s.hostId === players[1].playerId);
+    const back = server.client();
+    const { playerId, token } = players[0];
+    expect((await emit(back, 'room:rejoin', { code, playerId, token })).ok).toBe(true);
+    const state = await waitFor(back, 'room:state');
+    expect(state.hostId).toBe(playerId);
+  });
+
   it('leaving the lobby removes the player and reassigns host', async () => {
     const { players } = await roomWithThree();
     expect((await emit(players[0].socket, 'room:leave')).ok).toBe(true);
@@ -192,6 +204,33 @@ describe('RoomManager', () => {
     expect(room.hostId).toBe(luis.id); // passed to Luis, then nobody left to hand it to
     m.rejoin(room.code, ana.id, ana.token);
     expect(room.hostId).toBe(ana.id);
+  });
+
+  it('a stand-in host keeps the role while the creator is away, and hands it back', () => {
+    const m = new RoomManager();
+    const { room, player: ana } = m.createRoom('Ana');
+    const { player: luis } = m.joinRoom(room.code, 'Luis');
+    const { player: sofi } = m.joinRoom(room.code, 'Sofi');
+    m.setConnected(room, ana.id, false);
+    expect(room.hostId).toBe(luis.id);
+    m.setConnected(room, sofi.id, false);
+    m.setConnected(room, sofi.id, true);
+    expect(room.hostId).toBe(luis.id); // Sofi reconnecting doesn't steal it
+    m.setConnected(room, ana.id, true);
+    expect(room.hostId).toBe(ana.id);
+  });
+
+  it('if the creator leaves the lobby, the new host becomes the owner', () => {
+    const m = new RoomManager();
+    const { room, player: ana } = m.createRoom('Ana');
+    const { player: luis } = m.joinRoom(room.code, 'Luis');
+    const { player: sofi } = m.joinRoom(room.code, 'Sofi');
+    m.leave(room, ana.id);
+    expect(room.hostId).toBe(luis.id);
+    m.setConnected(room, luis.id, false);
+    expect(room.hostId).toBe(sofi.id);
+    m.setConnected(room, luis.id, true);
+    expect(room.hostId).toBe(luis.id);
   });
 
   it('finished games move the room to finished and allow restart', () => {
